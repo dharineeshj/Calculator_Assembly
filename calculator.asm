@@ -51,7 +51,7 @@ caculate:
     mov rsi,-1
     mov rcx,-1
     mov r9,-1
-    mov DWORD [rbp-4],0
+    mov DWORD [rbp-4],-1
     
 loop:
     mov al, BYTE [rdi]
@@ -72,6 +72,10 @@ loop:
 
         _add_number:
             mov ebx,DWORD [rbp-4]
+            cmp ebx,-1
+            jne _not_first_digit
+            mov ebx,0
+        _not_first_digit:
             imul ebx,10
             movzx eax, al       
             sub eax,'0'
@@ -82,19 +86,32 @@ loop:
             
     symbol:
         mov bl,al                   
-        add rsi,1
+
+        cmp DWORD [rbp-4],-1
+        je _condition1
+        
         mov eax,DWORD [rbp-4]
+        add rsi,1
         mov DWORD [num+rsi*4],eax
-        xor eax,eax
-        mov DWORD [rbp-4],eax
+        mov DWORD [rbp-4],-1
 
     
         _condition1:
+            cmp bl,'('
+            je _push
+
             cmp rcx,-1
             je _push
 
             mov dl, BYTE [stack+rcx]
             
+            cmp bl,')'
+            je _braces_op
+
+            cmp bl,'+'
+            je .curr_addsub
+            cmp bl,'-'
+            je .curr_addsub
             cmp bl,'*'
             je .curr_muldiv
             cmp bl,'/'
@@ -102,8 +119,23 @@ loop:
 
             jmp _pop
 
+        .curr_addsub:
+            cmp dl,'('
+            je _push
+            cmp dl,'+'
+            je _pop
+            cmp dl,'-'
+            je _pop
+            cmp dl,'*'
+            je _pop
+            cmp dl,'/'
+            je _pop
+            jmp _push
+
         .curr_muldiv:
 
+            cmp dl,'('
+            je _push
             cmp dl,'*'
             je _pop
             cmp dl,'/'
@@ -130,11 +162,35 @@ loop:
 
             jmp loop
 
+        _braces_op:
+            cmp BYTE [stack+rcx],'('
+            je _braces_pop
+
+            cmp rcx,-1
+            je _end
+
+            mov ebx,DWORD [num+rsi*4]    
+            sub rsi,1
+            mov eax,DWORD [num+rsi*4]    
+
+            mov dl,BYTE [stack+rcx]      
+            call eval
+            mov DWORD [num+rsi*4],eax
+
+            sub rcx,1
+            jmp _braces_op
+        
+        _braces_pop:
+            sub rcx,1
+            jmp loop
+
 _done:
+    cmp DWORD [rbp-4],-1
+    je _no_last_push
     add rsi,1
     mov eax,DWORD [rbp-4]
     mov DWORD [num+rsi*4],eax
-
+_no_last_push:
     _loop:
         cmp rsi,0
         je _completed
@@ -145,9 +201,12 @@ _done:
 
         
         mov dl,BYTE [stack+rcx]
+        cmp dl,'('
+        je _break
+
         call eval
         mov DWORD [num+rsi*4],eax
-
+    _break:
         sub rcx,1
         jmp _loop
 
