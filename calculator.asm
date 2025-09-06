@@ -1,7 +1,7 @@
 section .data 
     formatNumPrintf: db '%d',10,0
     formatStringScanf: db '%s',0
-    divByZeroError: db "Division by zero error",10,0
+    ErrorMsg: db "Error",10,0
     msg: db "Enter the equation:",0
 
 section .bss
@@ -25,7 +25,7 @@ main:
     mov rbp,rsp
     sub rsp,32
 
-    repeate:
+    repeat:
         mov rdi,msg
         xor rax,rax
         call printf
@@ -34,15 +34,15 @@ main:
         mov rsi,equation
         xor rax,rax
         call scanf
-        call caculate
+        call calculate
 
-        jmp repeate
+        jmp repeat
 
     xor rax,rax
     leave
     ret
 
-caculate:
+calculate:
     push rbp
     mov rbp,rsp
     sub rsp,32
@@ -60,7 +60,7 @@ loop:
     je _done
 
     number:
-        _first_conditon:
+        _first_condition:
             cmp al,'0'
             jge _second_check
             jmp symbol
@@ -75,6 +75,7 @@ loop:
             cmp ebx,-1
             jne _not_first_digit
             mov ebx,0
+
         _not_first_digit:
             imul ebx,10
             movzx eax, al       
@@ -117,7 +118,7 @@ loop:
             cmp bl,'/'
             je .curr_muldiv
 
-            jmp _pop
+            jmp _error
 
         .curr_addsub:
             cmp dl,'('
@@ -157,10 +158,23 @@ loop:
             jmp _condition1
 
         _push:
-            add rcx,1
-            mov BYTE [stack+rcx],bl
+            cmp bl,'+'
+            je _continue
+            cmp bl,'-'
+            je _continue
+            cmp bl,'*'
+            je _continue
+            cmp bl,'/'
+            je _continue
+            cmp bl,'('
+            je _continue
+            jmp _error
 
-            jmp loop
+            _continue:
+                add rcx,1
+                mov BYTE [stack+rcx],bl
+
+                jmp loop
 
         _braces_op:
             cmp BYTE [stack+rcx],'('
@@ -253,22 +267,19 @@ eval:
 
     _div:
         cmp ebx, 0
-        je _div_by_zero
+        je _error
 
         cdq              
         idiv ebx         
         jmp _end
 
-    _div_by_zero:
+    _error:
         
-        mov rdi,divByZeroError
+        mov rdi,ErrorMsg
         xor eax,eax
         call printf
 
-        mov rax, 60        
-        xor rdi, rdi       
-        syscall
-
+        jmp repeat
 _end:
     leave
     ret
